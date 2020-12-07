@@ -26,6 +26,8 @@ namespace PathTracing
 		}
 		#endregion
 
+
+		[Header("Rendering Parameters")]
 		[SerializeField] private ComputeShader _pathTracingShader = null;
 		[SerializeField] private Shader _progressiveShader = null;
 		[SerializeField] private Texture _skyboxTexture = null;
@@ -33,9 +35,14 @@ namespace PathTracing
 
 		[SerializeField] private Light _directionalLight = null;
 
+		[Header("Interactions")]
 		[SerializeField] private bool _liveRendering = true;
 		[SerializeField] private UnityEngine.UI.RawImage _uiTarget = null;
 		[SerializeField] private UnityEngine.UI.Text _frameText = null;
+
+		[Header("Error (WIP)")]
+		[SerializeField] private bool _computeError = false;
+		[SerializeField] private Texture _referenceTexture = null;
 
 		private Camera _camera = null;
 		private RenderTexture _target = null;
@@ -43,6 +50,8 @@ namespace PathTracing
 
 		private uint _currentSample = 0;
 		private Material _progressiveMaterial = null;
+
+		private List<float> _L2Norms = new List<float>();
 
 		#region Compute Buffers
 		private ComputeBuffer _planeBuffer = null;
@@ -53,6 +62,8 @@ namespace PathTracing
 		private ComputeBuffer _meshBuffer = null;
 
 		private ComputeBuffer _materialBuffer = null;
+
+		ComputeBuffer _squaredDifferencesBuffer = null;
 		#endregion
 
 		#region Unity Callbacks
@@ -97,6 +108,13 @@ namespace PathTracing
 			_pathTracingShader.SetTexture(0, "Result", _target);
 			_pathTracingShader.SetTexture(0, "_SkyboxTexture", _skyboxTexture);
 			_pathTracingShader.SetTexture(0, "_BlueNoiseTexture", _noiseTextures[_currentSample % _noiseTextures.Length]);
+
+			if (_computeError && _squaredDifferencesBuffer != null && _referenceTexture != null)
+			{
+				_pathTracingShader.SetTexture(0, "_ReferenceImage", _referenceTexture);
+				_pathTracingShader.SetBuffer(0, "_SquaredDifferences", _squaredDifferencesBuffer);
+			}
+
 
 			SetBuffer("_Planes", _planeBuffer);
 			SetBuffer("_Spheres", _sphereBuffer);
@@ -158,6 +176,15 @@ namespace PathTracing
 				{
 					_frameText.text = "Frame: " + _currentSample;
 				}
+			}
+
+			if (_computeError && _squaredDifferencesBuffer != null && _referenceTexture != null)
+			{
+				var sqDiffs = new float[_squaredDifferencesBuffer.count];
+				_squaredDifferencesBuffer.GetData(sqDiffs);
+				// Get L2 Norm
+				float norm = sqDiffs.Sum();
+				_L2Norms.Add(norm);
 			}
 
 
@@ -247,6 +274,10 @@ namespace PathTracing
 
 			CreateComputeBuffer(ref _materialBuffer, materials, PathTracingMaterial.Stride);
 
+			if (_computeError && _referenceTexture != null)
+			{
+				_squaredDifferencesBuffer = new ComputeBuffer(512 * 512, sizeof(float));
+			}
 		}
 
 		private static void CreateComputeBuffer<T>(ref ComputeBuffer buffer, List<T> data, int stride) where T : struct
@@ -295,6 +326,8 @@ namespace PathTracing
 			ReleaseBuffer(_meshBuffer);
 
 			ReleaseBuffer(_materialBuffer);
+
+			ReleaseBuffer(_squaredDifferencesBuffer);
 		}
 
 		public void SaveToFile()

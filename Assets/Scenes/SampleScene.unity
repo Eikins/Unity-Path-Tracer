@@ -1256,9 +1256,11 @@ MonoBehaviour:
   - {fileID: 2800000, guid: 51aecc1d09bc55640b4f34d2fb725220, type: 3}
   - {fileID: 2800000, guid: c0681208159e5d345935b07907240597, type: 3}
   _directionalLight: {fileID: 705507994}
-  _liveRendering: 1
+  _liveRendering: 0
   _uiTarget: {fileID: 1009027981}
   _frameText: {fileID: 697427906}
+  _computeError: 0
+  _referenceTexture: {fileID: 2800000, guid: 606f8fd85ea89a346b21f448d3e34b23, type: 3}
 --- !u!1 &1009027979
 GameObject:
   m_ObjectHideFlags: 0

@@ -4,6 +4,8 @@
 #define USE_IMPORTANCE_SAMPLING 1
 #define USE_BLUE_NOISE 1
 
+#define COMPUTE_ERROR 0
+
 #include "Assets/Shaders/PathTracing/Constants.compute"
 #include "Assets/Shaders/PathTracing/Structures.compute"
 
@@ -15,6 +17,12 @@ StructuredBuffer<float3> _Vertices;
 StructuredBuffer<uint> _Indices;
 StructuredBuffer<Mesh> _Meshes;
 StructuredBuffer<Material> _Materials;
+
+#if COMPUTE_ERROR
+Texture2D<float3> _ReferenceImage;
+SamplerState sampler_ReferenceImage;
+RWStructuredBuffer<float> _SquaredDifferences;
+#endif
 
 float2 _Pixel;
 float2 _PixelOffset;
@@ -190,4 +198,11 @@ void PathTrace(uint3 id : SV_DispatchThreadID)
 	}
 
 	Result[_Pixel] = float4(result, 1);
+
+#if COMPUTE_ERROR
+	uint3 refColor = uint3(_ReferenceImage.SampleLevel(sampler_ReferenceImage, _Pixel / screenSize, 0).rgb * 255.0f);
+	uint3 rgbResult = uint3(saturate(result) * 255.0f);
+	float diff = (float(refColor.r) - float(rgbResult.r)) / 255.0f;
+	_SquaredDifferences[width * id.y + id.x] = diff * diff;
+#endif
 }
